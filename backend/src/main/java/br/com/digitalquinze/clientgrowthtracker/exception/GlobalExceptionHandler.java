@@ -12,8 +12,26 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import br.com.digitalquinze.clientgrowthtracker.restaurant.RestaurantNotFoundException;
 
+import org.springframework.security.access.AccessDeniedException;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+	
+	@ExceptionHandler(AccessDeniedException.class)
+	public ResponseEntity<Map<String, Object>> handleAccessDenied(
+	        AccessDeniedException exception) {
+
+	    Map<String, Object> body = new HashMap<>();
+
+	    body.put("timestamp", OffsetDateTime.now());
+	    body.put("status", HttpStatus.FORBIDDEN.value());
+	    body.put("error", "Forbidden");
+	    body.put("message", exception.getMessage());
+
+	    return ResponseEntity
+	            .status(HttpStatus.FORBIDDEN)
+	            .body(body);
+	}
 
     @ExceptionHandler(RestaurantNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleRestaurantNotFound(
