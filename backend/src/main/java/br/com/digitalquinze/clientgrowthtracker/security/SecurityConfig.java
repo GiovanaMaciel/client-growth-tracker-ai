@@ -43,17 +43,17 @@ public class SecurityConfig {
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
 
-        JwtGrantedAuthoritiesConverter authoritiesConverter =
+        JwtGrantedAuthoritiesConverter authorities =
                 new JwtGrantedAuthoritiesConverter();
 
-        authoritiesConverter.setAuthoritiesClaimName("roles");
-        authoritiesConverter.setAuthorityPrefix("ROLE_");
+        authorities.setAuthoritiesClaimName("roles");
+        authorities.setAuthorityPrefix("ROLE_");
 
         JwtAuthenticationConverter converter =
                 new JwtAuthenticationConverter();
 
         converter.setJwtGrantedAuthoritiesConverter(
-                authoritiesConverter
+                authorities
         );
 
         return converter;
@@ -66,6 +66,7 @@ public class SecurityConfig {
             throws Exception {
 
         http
+
             .csrf(csrf -> csrf.disable())
 
             .sessionManagement(session ->
@@ -76,12 +77,15 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
+                // =================================================
+                // 1. Authentication
+                // =================================================
+
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/auth/login"
                 )
                 .permitAll()
-
 
                 .requestMatchers(
                     HttpMethod.GET,
@@ -89,10 +93,35 @@ public class SecurityConfig {
                 )
                 .authenticated()
 
+
+                // =================================================
+                // 2. Users
+                // =================================================
+
                 .requestMatchers(
                     "/api/users/**"
                 )
                 .hasRole("AGENCY_ADMIN")
+
+
+                // =================================================
+                // 3. REPORTING PERIODS
+                //
+                // IMPORTANT:
+                // these rules must appear BEFORE the generic
+                // rules for /api/restaurants/**
+                // =================================================
+
+                .requestMatchers(
+                    "/api/restaurants/*/periods",
+                    "/api/restaurants/*/periods/**"
+                )
+                .authenticated()
+
+
+                // =================================================
+                // 4. RESTAURANTS CRUD
+                // =================================================
 
                 .requestMatchers(
                     HttpMethod.POST,
@@ -118,10 +147,17 @@ public class SecurityConfig {
                 )
                 .authenticated()
 
+
+                // =================================================
+                // 5. Rest of the API
+                // =================================================
+
                 .anyRequest()
                 .authenticated()
             )
 
+            // Makes Spring Security validate the Bearer JWT
+            // using the JwtDecoder created in JwtConfig
             .oauth2ResourceServer(oauth ->
                 oauth.jwt(jwt ->
                     jwt.jwtAuthenticationConverter(
