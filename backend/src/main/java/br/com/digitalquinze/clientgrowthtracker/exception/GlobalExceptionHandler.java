@@ -6,112 +6,91 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import br.com.digitalquinze.clientgrowthtracker.channel.ChannelNotFoundException;
+import br.com.digitalquinze.clientgrowthtracker.channelmetric.ChannelMetricAlreadyExistsException;
+import br.com.digitalquinze.clientgrowthtracker.channelmetric.ChannelMetricNotFoundException;
 import br.com.digitalquinze.clientgrowthtracker.reportingperiod.ReportingPeriodAlreadyExistsException;
 import br.com.digitalquinze.clientgrowthtracker.reportingperiod.ReportingPeriodNotFoundException;
 import br.com.digitalquinze.clientgrowthtracker.restaurant.RestaurantNotFoundException;
+import br.com.digitalquinze.clientgrowthtracker.restaurantchannel.RestaurantChannelAlreadyExistsException;
+import br.com.digitalquinze.clientgrowthtracker.restaurantchannel.RestaurantChannelNotFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     // =========================================================
-    // 404 - RESTAURANT NOT FOUND
+    // 404 - NOT FOUND
     // =========================================================
 
-    @ExceptionHandler(RestaurantNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleRestaurantNotFound(
-            RestaurantNotFoundException exception) {
+    @ExceptionHandler({
+        RestaurantNotFoundException.class,
+        ReportingPeriodNotFoundException.class,
+        ChannelNotFoundException.class,
+        RestaurantChannelNotFoundException.class,
+        ChannelMetricNotFoundException.class
+    })
+    public ResponseEntity<Map<String, Object>> handleNotFound(
+            RuntimeException exception) {
 
-        Map<String, Object> body = new HashMap<>();
-
-        body.put("timestamp", OffsetDateTime.now());
-        body.put("status", HttpStatus.NOT_FOUND.value());
-        body.put("error", "Not Found");
-        body.put("message", exception.getMessage());
-
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(body);
+        return buildErrorResponse(
+                HttpStatus.NOT_FOUND,
+                "Not Found",
+                exception.getMessage()
+        );
     }
 
 
     // =========================================================
-    // 404 - REPORTING PERIOD NOT FOUND
+    // 409 - CONFLICT
     // =========================================================
 
-    @ExceptionHandler(ReportingPeriodNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleReportingPeriodNotFound(
-            ReportingPeriodNotFoundException exception) {
+    @ExceptionHandler({
+        ReportingPeriodAlreadyExistsException.class,
+        RestaurantChannelAlreadyExistsException.class,
+        ChannelMetricAlreadyExistsException.class
+    })
+    public ResponseEntity<Map<String, Object>> handleConflict(
+            RuntimeException exception) {
 
-        Map<String, Object> body = new HashMap<>();
-
-        body.put("timestamp", OffsetDateTime.now());
-        body.put("status", HttpStatus.NOT_FOUND.value());
-        body.put("error", "Not Found");
-        body.put("message", exception.getMessage());
-
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(body);
+        return buildErrorResponse(
+                HttpStatus.CONFLICT,
+                "Conflict",
+                exception.getMessage()
+        );
     }
 
 
     // =========================================================
-    // 409 - REPORTING PERIOD ALREADY EXISTS
-    // =========================================================
-
-    @ExceptionHandler(ReportingPeriodAlreadyExistsException.class)
-    public ResponseEntity<Map<String, Object>> handleReportingPeriodAlreadyExists(
-            ReportingPeriodAlreadyExistsException exception) {
-
-        Map<String, Object> body = new HashMap<>();
-
-        body.put("timestamp", OffsetDateTime.now());
-        body.put("status", HttpStatus.CONFLICT.value());
-        body.put("error", "Conflict");
-        body.put("message", exception.getMessage());
-
-        return ResponseEntity
-                .status(HttpStatus.CONFLICT)
-                .body(body);
-    }
-
-
-    // =========================================================
-    // 403 - ACCESS DENIED
+    // 403 - FORBIDDEN
     // =========================================================
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(
             AccessDeniedException exception) {
 
-        Map<String, Object> body = new HashMap<>();
-
-        body.put("timestamp", OffsetDateTime.now());
-        body.put("status", HttpStatus.FORBIDDEN.value());
-        body.put("error", "Forbidden");
-        body.put("message", exception.getMessage());
-
-        return ResponseEntity
-                .status(HttpStatus.FORBIDDEN)
-                .body(body);
+        return buildErrorResponse(
+                HttpStatus.FORBIDDEN,
+                "Forbidden",
+                exception.getMessage()
+        );
     }
 
 
     // =========================================================
     // 400 - VALIDATION ERRORS
     //
-    // Exemplo:
-    //
+    // Example:
     // @NotBlank
-    // @Size
+    // @NotNull
     // @Min
     // @Max
-    // @Email
+    // @DecimalMin
     // =========================================================
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -120,8 +99,7 @@ public class GlobalExceptionHandler {
 
         Map<String, String> fields = new HashMap<>();
 
-        exception
-                .getBindingResult()
+        exception.getBindingResult()
                 .getFieldErrors()
                 .forEach(error ->
                     fields.put(
@@ -132,10 +110,25 @@ public class GlobalExceptionHandler {
 
         Map<String, Object> body = new HashMap<>();
 
-        body.put("timestamp", OffsetDateTime.now());
-        body.put("status", HttpStatus.BAD_REQUEST.value());
-        body.put("error", "Validation failed");
-        body.put("fields", fields);
+        body.put(
+            "timestamp",
+            OffsetDateTime.now()
+        );
+
+        body.put(
+            "status",
+            HttpStatus.BAD_REQUEST.value()
+        );
+
+        body.put(
+            "error",
+            "Validation failed"
+        );
+
+        body.put(
+            "fields",
+            fields
+        );
 
         return ResponseEntity
                 .badRequest()
@@ -144,29 +137,79 @@ public class GlobalExceptionHandler {
 
 
     // =========================================================
-    // 400 - BUSINESS VALIDATION / INVALID ARGUMENT
+    // 400 - BUSINESS VALIDATION
     //
-    // Examples:
-    //
+    // Example:
+    // - netRevenue > grossRevenue
     // - referenceMonth is not the first day of the month
-    // - email already registered
-    // - RESTAURANT_USER with no restaurant
-    // - AGENCY_ADMIN associated with a restaurant
+    // - restaurant channel is inactive
+    // - e-mail is already registered
     // =========================================================
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(
             IllegalArgumentException exception) {
 
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                "Bad Request",
+                exception.getMessage()
+        );
+    }
+
+
+    // =========================================================
+    // 400 - INVALID JSON
+    //
+    // Example:
+    // Malformed JSON or invalid enum
+    // =========================================================
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidJson(
+            HttpMessageNotReadableException exception) {
+
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                "Bad Request",
+                "Invalid request body"
+        );
+    }
+
+
+    // =========================================================
+    // AUXILIARY METHOD
+    // =========================================================
+
+    private ResponseEntity<Map<String, Object>> buildErrorResponse(
+            HttpStatus status,
+            String error,
+            String message) {
+
         Map<String, Object> body = new HashMap<>();
 
-        body.put("timestamp", OffsetDateTime.now());
-        body.put("status", HttpStatus.BAD_REQUEST.value());
-        body.put("error", "Bad Request");
-        body.put("message", exception.getMessage());
+        body.put(
+            "timestamp",
+            OffsetDateTime.now()
+        );
+
+        body.put(
+            "status",
+            status.value()
+        );
+
+        body.put(
+            "error",
+            error
+        );
+
+        body.put(
+            "message",
+            message
+        );
 
         return ResponseEntity
-                .badRequest()
+                .status(status)
                 .body(body);
     }
 }

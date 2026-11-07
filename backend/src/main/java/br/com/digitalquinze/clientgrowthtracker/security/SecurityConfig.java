@@ -33,7 +33,9 @@ public class SecurityConfig {
             PasswordEncoder passwordEncoder) {
 
         DaoAuthenticationProvider provider =
-                new DaoAuthenticationProvider(userDetailsService);
+                new DaoAuthenticationProvider(
+                        userDetailsService
+                );
 
         provider.setPasswordEncoder(passwordEncoder);
 
@@ -67,6 +69,7 @@ public class SecurityConfig {
 
         http
 
+            // API stateless usando JWT.
             .csrf(csrf -> csrf.disable())
 
             .sessionManagement(session ->
@@ -77,10 +80,9 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
-                // =================================================
-                // 1. Authentication
-                // =================================================
-
+                // =====================================================
+                // AUTH
+                // =====================================================
                 .requestMatchers(
                     HttpMethod.POST,
                     "/api/auth/login"
@@ -94,9 +96,91 @@ public class SecurityConfig {
                 .authenticated()
 
 
-                // =================================================
-                // 2. Users
-                // =================================================
+                // =====================================================
+                // CHANNELS
+                // =====================================================
+
+                // iFood, 99 Food, Anota Ai...
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/channels/**"
+                )
+                .authenticated()
+
+
+                // =====================================================
+                // CHANNEL METRICS
+                //
+                // IMPORTANT:
+                // these rules must come BEFORE the generic rules
+                // for /api/restaurants/**
+                //
+                // A restaurant can provide its own data. 
+                // TenantAccessService verifies that it is the correct restaurant.
+                // =====================================================
+
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/restaurants/*/periods/*/channel-metrics"
+                )
+                .authenticated()
+
+                .requestMatchers(
+                    HttpMethod.PUT,
+                    "/api/restaurants/*/periods/*/channel-metrics/*"
+                )
+                .authenticated()
+
+                .requestMatchers(
+                    HttpMethod.DELETE,
+                    "/api/restaurants/*/periods/*/channel-metrics/*"
+                )
+                .authenticated()
+
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/restaurants/*/periods/*/channel-metrics/**"
+                )
+                .authenticated()
+
+
+                // =====================================================
+                // REPORTING PERIODS
+                //
+                // Restaurants can create and edit their own time periods. 
+                // TenantAccessService ensures isolation.
+                // =====================================================
+
+                .requestMatchers(
+                    HttpMethod.POST,
+                    "/api/restaurants/*/periods"
+                )
+                .authenticated()
+
+                .requestMatchers(
+                    HttpMethod.PUT,
+                    "/api/restaurants/*/periods/*"
+                )
+                .authenticated()
+
+                .requestMatchers(
+                    HttpMethod.DELETE,
+                    "/api/restaurants/*/periods/*"
+                )
+                .authenticated()
+
+                .requestMatchers(
+                    HttpMethod.GET,
+                    "/api/restaurants/*/periods/**"
+                )
+                .authenticated()
+
+
+                // =====================================================
+                // USERS
+                //
+                // Only the agency creates/manages accounts.
+                // =====================================================
 
                 .requestMatchers(
                     "/api/users/**"
@@ -104,24 +188,12 @@ public class SecurityConfig {
                 .hasRole("AGENCY_ADMIN")
 
 
-                // =================================================
-                // 3. REPORTING PERIODS
+                // =====================================================
+                // RESTAURANTS
                 //
-                // IMPORTANT:
-                // these rules must appear BEFORE the generic
-                // rules for /api/restaurants/**
-                // =================================================
-
-                .requestMatchers(
-                    "/api/restaurants/*/periods",
-                    "/api/restaurants/*/periods/**"
-                )
-                .authenticated()
-
-
-                // =================================================
-                // 4. RESTAURANTS CRUD
-                // =================================================
+                // Create/modify/delete restaurants:
+                // agency only.
+                // =====================================================
 
                 .requestMatchers(
                     HttpMethod.POST,
@@ -141,6 +213,12 @@ public class SecurityConfig {
                 )
                 .hasRole("AGENCY_ADMIN")
 
+
+                // View restaurants:
+                // any authenticated user. 
+                //
+                // RestaurantService/TenantAccessService determines
+                // which restaurants that user is permitted to see
                 .requestMatchers(
                     HttpMethod.GET,
                     "/api/restaurants/**"
@@ -148,16 +226,18 @@ public class SecurityConfig {
                 .authenticated()
 
 
-                // =================================================
-                // 5. Rest of the API
-                // =================================================
+                // =====================================================
+                // ANY OTHER ROUTE
+                // =====================================================
 
                 .anyRequest()
                 .authenticated()
             )
 
-            // Makes Spring Security validate the Bearer JWT
-            // using the JwtDecoder created in JwtConfig
+            // Makes Spring Security validate the JWT sent in:
+            //
+            // Authorization: Bearer <token>
+            //
             .oauth2ResourceServer(oauth ->
                 oauth.jwt(jwt ->
                     jwt.jwtAuthenticationConverter(
