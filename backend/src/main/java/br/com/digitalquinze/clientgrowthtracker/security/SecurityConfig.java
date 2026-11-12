@@ -69,7 +69,7 @@ public class SecurityConfig {
 
         http
 
-            // API stateless usando JWT.
+            // Stateless API using JWT
             .csrf(csrf -> csrf.disable())
 
             .sessionManagement(session ->
@@ -200,6 +200,12 @@ public class SecurityConfig {
                     "/api/restaurants/**"
                 )
                 .hasRole("AGENCY_ADMIN")
+                
+                .requestMatchers(
+                	HttpMethod.PUT,
+                	"/api/restaurants/*/periods/*/channel-metrics/*/funnel"
+                )
+                .authenticated()
 
                 .requestMatchers(
                     HttpMethod.PUT,
