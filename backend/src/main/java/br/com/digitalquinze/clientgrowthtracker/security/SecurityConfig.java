@@ -206,6 +206,18 @@ public class SecurityConfig {
                 	"/api/restaurants/*/periods/*/channel-metrics/*/funnel"
                 )
                 .authenticated()
+                
+                .requestMatchers(
+                	HttpMethod.PUT,
+                	"/api/restaurants/*/periods/*/paid-traffic"
+                )
+                .authenticated()
+
+                .requestMatchers(
+                	HttpMethod.DELETE,
+                	"/api/restaurants/*/periods/*/paid-traffic"
+                )
+                .authenticated()
 
                 .requestMatchers(
                     HttpMethod.PUT,

@@ -20,6 +20,7 @@ import br.com.digitalquinze.clientgrowthtracker.reportingperiod.ReportingPeriodN
 import br.com.digitalquinze.clientgrowthtracker.restaurant.RestaurantNotFoundException;
 import br.com.digitalquinze.clientgrowthtracker.restaurantchannel.RestaurantChannelAlreadyExistsException;
 import br.com.digitalquinze.clientgrowthtracker.restaurantchannel.RestaurantChannelNotFoundException;
+import br.com.digitalquinze.clientgrowthtracker.paidtraffic.PaidTrafficMetricNotFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -33,7 +34,8 @@ public class GlobalExceptionHandler {
         ReportingPeriodNotFoundException.class,
         ChannelNotFoundException.class,
         RestaurantChannelNotFoundException.class,
-        ChannelMetricNotFoundException.class
+        ChannelMetricNotFoundException.class,
+        PaidTrafficMetricNotFoundException.class
     })
     public ResponseEntity<Map<String, Object>> handleNotFound(
             RuntimeException exception) {
