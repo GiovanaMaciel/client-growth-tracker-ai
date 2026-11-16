@@ -13,6 +13,7 @@ import br.com.digitalquinze.clientgrowthtracker.reportingperiod.ReportingPeriod;
 import br.com.digitalquinze.clientgrowthtracker.reportingperiod.ReportingPeriodNotFoundException;
 import br.com.digitalquinze.clientgrowthtracker.reportingperiod.ReportingPeriodRepository;
 import br.com.digitalquinze.clientgrowthtracker.security.TenantAccessService;
+import java.util.Optional;
 
 @Service
 public class PaidTrafficMetricService {
@@ -43,6 +44,17 @@ public class PaidTrafficMetricService {
         this.tenantAccessService =
                 tenantAccessService;
     }
+    
+
+	@Transactional(readOnly = true)
+	@PreAuthorize("isAuthenticated()")
+	public Optional<PaidTrafficMetricResponse> findOptional(Long restaurantId, Long periodId) {
+
+		validateAndFindPeriod(restaurantId, periodId);
+
+		return paidTrafficMetricRepository.findByPeriod_Id(periodId).map(this::toResponse);
+	}
+
 
     @Transactional(readOnly = true)
     @PreAuthorize("isAuthenticated()")
