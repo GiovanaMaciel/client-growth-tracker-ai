@@ -8,6 +8,10 @@ import { api } from "../api/client";
 
 import { clearSession, getSession } from "../auth/session";
 
+import { useQueryClient } from "@tanstack/react-query";
+
+import { Link } from "react-router";
+
 interface Restaurant {
   id: number;
   name: string;
@@ -23,6 +27,8 @@ export default function RestaurantsPage() {
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState("");
+
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +69,7 @@ export default function RestaurantsPage() {
   }, [navigate]);
 
   function logout() {
+    queryClient.clear();
     clearSession();
 
     navigate("/login", {
@@ -125,20 +132,27 @@ export default function RestaurantsPage() {
 
         <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {restaurants.map((restaurant) => (
-            <div
+            <Link
               key={restaurant.id}
-              className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm"
+              to={`/restaurants/${restaurant.id}/periods`}
+              className="group bg-white border border-slate-200 rounded-xl p-6 shadow-sm hover:shadow-md hover:border-teal-300 transition-all"
             >
               <div className="h-12 w-12 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold mb-5">
                 {restaurant.name.charAt(0)}
               </div>
 
-              <h3 className="text-lg font-semibold text-slate-900">
+              <h3 className="text-lg font-semibold text-slate-900 group-hover:text-teal-700">
                 {restaurant.name}
               </h3>
 
-              <p className="text-sm text-slate-500 mt-2">Cliente cadastrado</p>
-            </div>
+              <p className="text-sm text-slate-500 mt-2">
+                Visualizar períodos e dashboards
+              </p>
+
+              <div className="mt-5 text-sm font-semibold text-teal-600">
+                Acessar restaurante →
+              </div>
+            </Link>
           ))}
         </div>
       </main>

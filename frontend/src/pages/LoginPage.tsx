@@ -8,6 +8,8 @@ import { api } from "../api/client";
 
 import { saveSession, type LoginResponse } from "../auth/session";
 
+import { useQueryClient } from "@tanstack/react-query";
+
 export default function LoginPage() {
   const navigate = useNavigate();
 
@@ -16,6 +18,7 @@ export default function LoginPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const queryClient = useQueryClient();
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,6 +32,7 @@ export default function LoginPage() {
         password,
       });
 
+      queryClient.clear();
       saveSession(response.data);
 
       navigate("/restaurants", {
