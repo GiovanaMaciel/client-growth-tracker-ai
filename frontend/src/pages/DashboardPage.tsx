@@ -115,6 +115,13 @@ export default function DashboardPage() {
           <p className="text-slate-500 mt-2 capitalize">
             Dashboard executivo · {formatMonth(summary.referenceMonth)}
           </p>
+
+          <Link
+            to={`/restaurants/${restaurantId}/periods/${periodId}/data`}
+            className="inline-flex mt-5 rounded-lg bg-teal-600 px-5 py-3 text-sm font-semibold text-white hover:bg-teal-700 transition-colors"
+          >
+            Inserir / editar dados
+          </Link>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -328,6 +335,27 @@ export default function DashboardPage() {
               <KpiCard
                 label="Compras"
                 value={formatNumber(paidTraffic.purchases)}
+              />
+
+              <KpiCard
+                label="Custo por visita"
+                value={
+                  paidTraffic.visits === 0 || paidTraffic.costPerVisit == null
+                    ? "—"
+                    : formatCurrency(paidTraffic.costPerVisit)
+                }
+              />
+
+              <KpiCard
+                label="Frequência"
+                value={
+                  paidTraffic.reach === 0 || paidTraffic.frequency == null
+                    ? "—"
+                    : paidTraffic.frequency.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                }
               />
             </div>
           ) : (

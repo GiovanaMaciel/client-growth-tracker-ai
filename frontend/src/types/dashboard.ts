@@ -78,9 +78,9 @@ export interface PaidTraffic {
 
   roas: number;
   cpa: number;
-  costPerVisit: number;
+  costPerVisit: number | null;
   averageTicket: number;
-  frequency: number;
+  frequency: number | null;
 
   visitToCartConversion: number;
   visitToPurchaseConversion: number;
