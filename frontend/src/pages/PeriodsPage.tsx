@@ -13,6 +13,11 @@ type ReportingPeriod = {
   notes: string | null;
 };
 
+type Restaurant = {
+  id: number;
+  name: string;
+};
+
 type CreatePeriodRequest = {
   referenceMonth: string;
   openDays: number;
@@ -60,6 +65,15 @@ export default function PeriodsPage() {
 
   const validRestaurantId = Number.isInteger(id) && id > 0;
   const isAdmin = session?.role === "AGENCY_ADMIN";
+
+  const restaurantQuery = useQuery({
+    queryKey: ["restaurant", id],
+    queryFn: async () => {
+      const response = await api.get<Restaurant>(`/restaurants/${id}`);
+      return response.data;
+    },
+    enabled: validRestaurantId,
+  });
 
   const periodsQuery = useQuery({
     queryKey: ["periods", id],
@@ -143,147 +157,178 @@ export default function PeriodsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl space-y-8 p-6">
-      <header className="space-y-3">
-        <Link
-          to="/restaurants"
-          className="text-sm text-blue-600 hover:underline"
-        >
-          Voltar aos restaurantes
-        </Link>
-
-        <h1 className="text-3xl font-bold">Períodos de análise</h1>
-
-        <p className="text-gray-600">Restaurante #{id}</p>
-
-        {isAdmin && (
+    <div className="min-h-screen bg-slate-50">
+      <main className="mx-auto max-w-6xl space-y-8 px-6 py-10">
+        <header className="space-y-5">
           <Link
-            to={`/restaurants/${id}/channels`}
-            className="inline-block rounded-lg bg-gray-900 px-4 py-2 text-white"
+            to="/restaurants"
+            className="text-sm font-medium text-teal-700 hover:underline"
           >
-            Gerenciar canais
+            ← Voltar aos restaurantes
           </Link>
-        )}
-      </header>
 
-      <section className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="mb-5 text-xl font-semibold">Criar novo período</h2>
+          <div className="flex flex-wrap items-end justify-between gap-5">
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">
+                Períodos de análise
+              </h1>
+              <p className="mt-2 text-slate-500">
+                {restaurantQuery.data?.name ?? `Restaurante #${id}`}
+              </p>
+              <p className="mt-1 text-sm text-slate-400">
+                Organize as informações mensais de desempenho.
+              </p>
+            </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+            {isAdmin && (
+              <Link
+                to={`/restaurants/${id}/channels`}
+                className="inline-flex rounded-lg border border-teal-200 bg-white px-5 py-3 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50"
+              >
+                Gerenciar canais
+              </Link>
+            )}
+          </div>
+        </header>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-slate-900">
+            Criar novo período
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Selecione o mês e informe quantos dias o restaurante funcionou.
+          </p>
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+            <div className="grid gap-5 md:grid-cols-2">
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-slate-700">
+                  Mês de referência
+                </span>
+                <input
+                  type="month"
+                  value={month}
+                  onChange={(event) => setMonth(event.target.value)}
+                  required
+                  className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                />
+              </label>
+
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-slate-700">
+                  Dias de funcionamento
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  max={month ? getDaysInMonth(month) : 31}
+                  value={openDays}
+                  onChange={(event) => setOpenDays(event.target.value)}
+                  required
+                  className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                />
+              </label>
+            </div>
+
             <label className="block space-y-2">
-              <span className="font-medium">Mês de referência</span>
-
-              <input
-                type="month"
-                value={month}
-                onChange={(event) => setMonth(event.target.value)}
-                required
-                className="w-full rounded-lg border p-3"
+              <span className="text-sm font-medium text-slate-700">
+                Observações (opcional)
+              </span>
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                placeholder="Ex.: Restaurante fechado para reforma por 3 dias."
               />
             </label>
 
-            <label className="block space-y-2">
-              <span className="font-medium">Dias de funcionamento</span>
+            {formError && (
+              <p role="alert" className="text-sm text-red-600">
+                {formError}
+              </p>
+            )}
+            {success && (
+              <p role="status" className="text-sm text-teal-700">
+                {success}
+              </p>
+            )}
 
-              <input
-                type="number"
-                min="1"
-                max={month ? getDaysInMonth(month) : 31}
-                value={openDays}
-                onChange={(event) => setOpenDays(event.target.value)}
-                required
-                className="w-full rounded-lg border p-3"
-              />
-            </label>
+            <button
+              type="submit"
+              disabled={createMutation.isPending}
+              className="rounded-lg bg-teal-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+            >
+              {createMutation.isPending ? "Salvando..." : "Criar período"}
+            </button>
+          </form>
+        </section>
+
+        <section>
+          <div className="mb-5 flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="text-xl font-semibold text-slate-900">
+              Períodos cadastrados
+            </h2>
+            {periodsQuery.isSuccess && (
+              <span className="text-sm text-slate-500">
+                {periodsQuery.data.length}{" "}
+                {periodsQuery.data.length === 1 ? "período" : "períodos"}
+              </span>
+            )}
           </div>
 
-          <label className="block space-y-2">
-            <span className="font-medium">Observações</span>
-
-            <textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              rows={3}
-              className="w-full rounded-lg border p-3"
-              placeholder="Ex.: Restaurante fechado para reforma por 3 dias."
-            />
-          </label>
-
-          {formError && (
-            <p role="alert" className="text-sm text-red-600">
-              {formError}
-            </p>
+          {periodsQuery.isPending && (
+            <p className="text-slate-500">Carregando períodos...</p>
           )}
-
-          {success && (
-            <p role="status" className="text-sm text-green-600">
-              {success}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={createMutation.isPending}
-            className="rounded-lg bg-blue-600 px-5 py-3 font-medium text-white disabled:opacity-50"
-          >
-            {createMutation.isPending ? "Salvando..." : "Criar período"}
-          </button>
-        </form>
-      </section>
-
-      <section>
-        <h2 className="mb-4 text-xl font-semibold">Períodos cadastrados</h2>
-
-        {periodsQuery.isPending && <p>Carregando períodos...</p>}
-
-        {periodsQuery.isError && (
-          <p role="alert" className="text-red-600">
-            Não foi possível carregar os períodos.
-          </p>
-        )}
-
-        {periodsQuery.isSuccess && periodsQuery.data.length === 0 && (
-          <p>Nenhum período cadastrado ainda.</p>
-        )}
-
-        <div className="grid gap-4 md:grid-cols-2">
-          {periodsQuery.data?.map((period) => (
-            <article
-              key={period.id}
-              className="rounded-xl border bg-white p-5 shadow-sm"
+          {periodsQuery.isError && (
+            <p
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700"
             >
-              <h3 className="text-lg font-semibold capitalize">
-                {formatMonth(period.referenceMonth)}
-              </h3>
+              Não foi possível carregar os períodos.
+            </p>
+          )}
+          {periodsQuery.isSuccess && periodsQuery.data.length === 0 && (
+            <p className="rounded-xl border border-slate-200 bg-white p-6 text-slate-500">
+              Nenhum período cadastrado ainda.
+            </p>
+          )}
 
-              <p className="mt-2 text-gray-600">
-                {period.openDays} dias de funcionamento
-              </p>
+          <div className="grid gap-5 md:grid-cols-2">
+            {periodsQuery.data?.map((period) => (
+              <article
+                key={period.id}
+                className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:border-teal-300 hover:shadow-md"
+              >
+                <h3 className="text-lg font-semibold capitalize text-slate-900">
+                  {formatMonth(period.referenceMonth)}
+                </h3>
+                <p className="mt-2 text-sm text-slate-600">
+                  {period.openDays} dias de funcionamento
+                </p>
+                {period.notes && (
+                  <p className="mt-2 text-sm text-slate-500">{period.notes}</p>
+                )}
 
-              {period.notes && (
-                <p className="mt-2 text-sm text-gray-500">{period.notes}</p>
-              )}
-
-              <div className="mt-4 flex flex-wrap gap-4">
-                <Link
-                  to={`/restaurants/${id}/periods/${period.id}/dashboard`}
-                  className="text-blue-600 hover:underline"
-                >
-                  Ver dashboard
-                </Link>
-
-                <Link
-                  to={`/restaurants/${id}/periods/${period.id}/data`}
-                  className="text-blue-600 hover:underline"
-                >
-                  Inserir dados
-                </Link>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-    </main>
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <Link
+                    to={`/restaurants/${id}/periods/${period.id}/dashboard`}
+                    className="inline-flex rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-700"
+                  >
+                    Ver dashboard
+                  </Link>
+                  <Link
+                    to={`/restaurants/${id}/periods/${period.id}/data`}
+                    className="inline-flex rounded-lg border border-teal-200 bg-white px-4 py-2.5 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50"
+                  >
+                    Inserir dados
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      </main>
+    </div>
   );
 }

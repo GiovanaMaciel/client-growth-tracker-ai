@@ -12,6 +12,11 @@ type Channel = {
   slug: string;
 };
 
+type Restaurant = {
+  id: number;
+  name: string;
+};
+
 type RestaurantChannel = {
   id: number;
   restaurantId: number;
@@ -112,13 +117,15 @@ function ChannelCard({ restaurantId, channel }: ChannelCardProps) {
   }
 
   return (
-    <article className="rounded-xl border bg-white p-5 shadow-sm">
+    <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:border-teal-300 hover:shadow-md">
       <div className="mb-4 flex items-center justify-between gap-4">
-        <h3 className="text-lg font-semibold">{channel.channelName}</h3>
+        <h3 className="text-lg font-semibold text-slate-900">
+          {channel.channelName}
+        </h3>
 
         <span
           className={`rounded-full px-3 py-1 text-xs font-medium ${
-            active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+            active ? "bg-teal-50 text-teal-700" : "bg-slate-100 text-slate-600"
           }`}
         >
           {active ? "Ativo" : "Inativo"}
@@ -127,7 +134,7 @@ function ChannelCard({ restaurantId, channel }: ChannelCardProps) {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <label className="block space-y-2">
-          <span className="text-sm font-medium">
+          <span className="text-sm font-medium text-slate-700">
             Identificador externo da loja
           </span>
 
@@ -136,7 +143,7 @@ function ChannelCard({ restaurantId, channel }: ChannelCardProps) {
             value={externalStoreId}
             onChange={(event) => setExternalStoreId(event.target.value)}
             placeholder="Opcional"
-            className="w-full rounded-lg border p-3"
+            className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
           />
         </label>
 
@@ -147,7 +154,7 @@ function ChannelCard({ restaurantId, channel }: ChannelCardProps) {
             onChange={(event) => setActive(event.target.checked)}
           />
 
-          <span className="text-sm">Canal ativo</span>
+          <span className="text-sm text-slate-700">Canal ativo</span>
         </label>
 
         {error && (
@@ -165,7 +172,7 @@ function ChannelCard({ restaurantId, channel }: ChannelCardProps) {
         <button
           type="submit"
           disabled={updateMutation.isPending}
-          className="rounded-lg bg-gray-900 px-4 py-2 text-white disabled:opacity-50"
+          className="rounded-lg bg-teal-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         >
           {updateMutation.isPending ? "Salvando..." : "Salvar alterações"}
         </button>
@@ -184,6 +191,15 @@ export default function RestaurantChannelsPage() {
 
   const isAdmin = session?.role === "AGENCY_ADMIN";
   const validRestaurantId = Number.isInteger(id) && id > 0;
+
+  const restaurantQuery = useQuery({
+    queryKey: ["restaurant", id],
+    queryFn: async () => {
+      const response = await api.get<Restaurant>(`/restaurants/${id}`);
+      return response.data;
+    },
+    enabled: isAdmin && validRestaurantId,
+  });
 
   const [selectedChannelId, setSelectedChannelId] = useState("");
   const [externalStoreId, setExternalStoreId] = useState("");
@@ -279,14 +295,16 @@ export default function RestaurantChannelsPage() {
 
   if (!isAdmin) {
     return (
-      <main className="mx-auto max-w-4xl p-6">
-        <h1 className="text-2xl font-bold">Acesso negado</h1>
+      <main className="mx-auto min-h-screen max-w-4xl bg-slate-50 p-10">
+        <h1 className="text-2xl font-bold text-slate-900">Acesso negado</h1>
 
-        <p className="mt-2">Apenas administradores podem gerenciar canais.</p>
+        <p className="mt-2 text-slate-600">
+          Apenas administradores podem gerenciar canais.
+        </p>
 
         <Link
           to={`/restaurants/${id}/periods`}
-          className="mt-4 inline-block text-blue-600 hover:underline"
+          className="mt-4 inline-block text-teal-700 hover:underline"
         >
           Voltar aos períodos
         </Link>
@@ -300,120 +318,140 @@ export default function RestaurantChannelsPage() {
   const hasError = channelsQuery.isError || restaurantChannelsQuery.isError;
 
   return (
-    <main className="mx-auto max-w-5xl space-y-8 p-6">
-      <header className="space-y-3">
-        <Link
-          to={`/restaurants/${id}/periods`}
-          className="text-sm text-blue-600 hover:underline"
-        >
-          Voltar aos períodos
-        </Link>
+    <div className="min-h-screen bg-slate-50">
+      <main className="mx-auto max-w-6xl space-y-8 px-6 py-10">
+        <header className="space-y-5">
+          <Link
+            to={`/restaurants/${id}/periods`}
+            className="text-sm font-medium text-teal-700 hover:underline"
+          >
+            ← Voltar aos períodos
+          </Link>
 
-        <h1 className="text-3xl font-bold">Gerenciar canais</h1>
+          <h1 className="text-3xl font-bold text-slate-900">
+            Gerenciar canais
+          </h1>
 
-        <p className="text-gray-600">Restaurante #{id}</p>
-      </header>
+          <p className="text-slate-500">
+            {restaurantQuery.data?.name ?? `Restaurante #${id}`}
+          </p>
+          <p className="text-sm text-slate-400">
+            Configure os canais de vendas disponíveis para este restaurante.
+          </p>
+        </header>
 
-      {isLoading && <p>Carregando canais...</p>}
+        {isLoading && <p className="text-slate-500">Carregando canais...</p>}
 
-      {hasError && (
-        <p role="alert" className="text-red-600">
-          Não foi possível carregar os canais.
-        </p>
-      )}
+        {hasError && (
+          <p
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700"
+          >
+            Não foi possível carregar os canais.
+          </p>
+        )}
 
-      {!isLoading && !hasError && (
-        <>
-          <section className="rounded-xl border bg-white p-6 shadow-sm">
-            <h2 className="mb-5 text-xl font-semibold">Associar novo canal</h2>
+        {!isLoading && !hasError && (
+          <>
+            <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-5 text-xl font-semibold text-slate-900">
+                Associar novo canal
+              </h2>
 
-            {availableChannels.length === 0 ? (
-              <p className="text-gray-600">
-                Todos os canais disponíveis já estão associados.
-              </p>
-            ) : (
-              <form onSubmit={handleCreate} className="space-y-4">
-                <label className="block space-y-2">
-                  <span className="font-medium">Canal</span>
+              {availableChannels.length === 0 ? (
+                <p className="text-slate-600">
+                  Todos os canais disponíveis já estão associados.
+                </p>
+              ) : (
+                <form onSubmit={handleCreate} className="space-y-4">
+                  <label className="block space-y-2">
+                    <span className="text-sm font-medium text-slate-700">
+                      Canal
+                    </span>
 
-                  <select
-                    value={selectedChannelId}
-                    onChange={(event) =>
-                      setSelectedChannelId(event.target.value)
-                    }
-                    required
-                    className="w-full rounded-lg border p-3"
+                    <select
+                      value={selectedChannelId}
+                      onChange={(event) =>
+                        setSelectedChannelId(event.target.value)
+                      }
+                      required
+                      className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                    >
+                      <option value="">Selecione um canal</option>
+
+                      {availableChannels.map((channel) => (
+                        <option key={channel.id} value={channel.id}>
+                          {channel.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="block space-y-2">
+                    <span className="text-sm font-medium text-slate-700">
+                      Identificador externo da loja
+                    </span>
+
+                    <input
+                      type="text"
+                      value={externalStoreId}
+                      onChange={(event) =>
+                        setExternalStoreId(event.target.value)
+                      }
+                      placeholder="Opcional"
+                      className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                    />
+                  </label>
+
+                  {error && (
+                    <p role="alert" className="text-sm text-red-600">
+                      {error}
+                    </p>
+                  )}
+
+                  {success && (
+                    <p role="status" className="text-sm text-green-600">
+                      {success}
+                    </p>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={createMutation.isPending}
+                    className="rounded-lg bg-teal-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                   >
-                    <option value="">Selecione um canal</option>
+                    {createMutation.isPending
+                      ? "Associando..."
+                      : "Associar canal"}
+                  </button>
+                </form>
+              )}
+            </section>
 
-                    {availableChannels.map((channel) => (
-                      <option key={channel.id} value={channel.id}>
-                        {channel.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+            <section>
+              <h2 className="mb-5 text-xl font-semibold text-slate-900">
+                Canais associados
+              </h2>
 
-                <label className="block space-y-2">
-                  <span className="font-medium">
-                    Identificador externo da loja
-                  </span>
+              {restaurantChannelsQuery.data?.length === 0 && (
+                <p className="rounded-xl border border-slate-200 bg-white p-6 text-slate-500">
+                  Nenhum canal associado a este restaurante.
+                </p>
+              )}
 
-                  <input
-                    type="text"
-                    value={externalStoreId}
-                    onChange={(event) => setExternalStoreId(event.target.value)}
-                    placeholder="Opcional"
-                    className="w-full rounded-lg border p-3"
+              <div className="grid gap-5 md:grid-cols-2">
+                {restaurantChannelsQuery.data?.map((channel) => (
+                  <ChannelCard
+                    key={channel.id}
+                    restaurantId={id}
+                    channel={channel}
                   />
-                </label>
-
-                {error && (
-                  <p role="alert" className="text-sm text-red-600">
-                    {error}
-                  </p>
-                )}
-
-                {success && (
-                  <p role="status" className="text-sm text-green-600">
-                    {success}
-                  </p>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="rounded-lg bg-blue-600 px-5 py-3 text-white disabled:opacity-50"
-                >
-                  {createMutation.isPending
-                    ? "Associando..."
-                    : "Associar canal"}
-                </button>
-              </form>
-            )}
-          </section>
-
-          <section>
-            <h2 className="mb-4 text-xl font-semibold">Canais associados</h2>
-
-            {restaurantChannelsQuery.data?.length === 0 && (
-              <p className="text-gray-600">
-                Nenhum canal associado a este restaurante.
-              </p>
-            )}
-
-            <div className="grid gap-4 md:grid-cols-2">
-              {restaurantChannelsQuery.data?.map((channel) => (
-                <ChannelCard
-                  key={channel.id}
-                  restaurantId={id}
-                  channel={channel}
-                />
-              ))}
-            </div>
-          </section>
-        </>
-      )}
-    </main>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+      </main>
+    </div>
   );
 }
