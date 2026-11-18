@@ -19,6 +19,7 @@ public record ChannelMetricResponse(
     BigDecimal netRevenue,
     BigDecimal fees,
     BigDecimal promotions,
+    IfoodFinancialDetailsResponse ifoodDetails,
 
     ChannelMetricSource source,
 

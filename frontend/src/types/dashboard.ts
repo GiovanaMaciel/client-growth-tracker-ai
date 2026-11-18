@@ -1,3 +1,10 @@
+export interface IfoodFinancialDetails {
+  servicesAndPromotions: number | null;
+  adjustments: number | null;
+  directReceipts: number | null;
+  marketplaceTransfers: number | null;
+}
+
 export interface ChannelPerformance {
   restaurantChannelId: number;
   channelId: number;
@@ -9,12 +16,14 @@ export interface ChannelPerformance {
 
   netRevenue: number;
   receivedPercentage: number;
+  fees: number | null;
 
   discountValue: number;
   discountPercentage: number;
 
   salesSharePercentage: number;
   ordersSharePercentage: number;
+  ifoodDetails: IfoodFinancialDetails | null;
 }
 
 export interface PeriodSummary {

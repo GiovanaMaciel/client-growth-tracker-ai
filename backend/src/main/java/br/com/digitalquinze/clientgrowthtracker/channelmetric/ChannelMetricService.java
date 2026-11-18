@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.com.digitalquinze.clientgrowthtracker.channelmetric.dto.ChannelMetricResponse;
 import br.com.digitalquinze.clientgrowthtracker.channelmetric.dto.CreateChannelMetricRequest;
+import br.com.digitalquinze.clientgrowthtracker.channelmetric.dto.IfoodFinancialDetailsRequest;
+import br.com.digitalquinze.clientgrowthtracker.channelmetric.dto.IfoodFinancialDetailsResponse;
 import br.com.digitalquinze.clientgrowthtracker.channelmetric.dto.UpdateChannelMetricRequest;
 import br.com.digitalquinze.clientgrowthtracker.reportingperiod.ReportingPeriod;
 import br.com.digitalquinze.clientgrowthtracker.reportingperiod.ReportingPeriodNotFoundException;
@@ -28,25 +30,21 @@ public class ChannelMetricService {
     private final ChannelMetricRepository channelMetricRepository;
     private final ReportingPeriodRepository reportingPeriodRepository;
     private final RestaurantChannelRepository restaurantChannelRepository;
+    private final IfoodFinancialDetailRepository ifoodFinancialDetailRepository;
     private final TenantAccessService tenantAccessService;
 
     public ChannelMetricService(
             ChannelMetricRepository channelMetricRepository,
             ReportingPeriodRepository reportingPeriodRepository,
             RestaurantChannelRepository restaurantChannelRepository,
+            IfoodFinancialDetailRepository ifoodFinancialDetailRepository,
             TenantAccessService tenantAccessService) {
 
-        this.channelMetricRepository =
-                channelMetricRepository;
-
-        this.reportingPeriodRepository =
-                reportingPeriodRepository;
-
-        this.restaurantChannelRepository =
-                restaurantChannelRepository;
-
-        this.tenantAccessService =
-                tenantAccessService;
+        this.channelMetricRepository = channelMetricRepository;
+        this.reportingPeriodRepository = reportingPeriodRepository;
+        this.restaurantChannelRepository = restaurantChannelRepository;
+        this.ifoodFinancialDetailRepository = ifoodFinancialDetailRepository;
+        this.tenantAccessService = tenantAccessService;
     }
 
     @Transactional
@@ -56,62 +54,86 @@ public class ChannelMetricService {
             Long periodId,
             CreateChannelMetricRequest request) {
 
-        tenantAccessService
-                .validateRestaurantAccess(restaurantId);
+        tenantAccessService.validateRestaurantAccess(restaurantId);
 
-        ReportingPeriod period =
-                findPeriod(
-                    restaurantId,
-                    periodId
-                );
+        ReportingPeriod period = findPeriod(
+                restaurantId,
+                periodId
+        );
 
         RestaurantChannel restaurantChannel =
                 restaurantChannelRepository
-                    .findByIdAndRestaurant_Id(
-                        request.restaurantChannelId(),
-                        restaurantId
-                    )
-                    .orElseThrow(
-                        () ->
-                            new RestaurantChannelNotFoundException(
-                                request.restaurantChannelId()
-                            )
-                    );
+                        .findByIdAndRestaurant_Id(
+                                request.restaurantChannelId(),
+                                restaurantId
+                        )
+                        .orElseThrow(
+                                () -> new RestaurantChannelNotFoundException(
+                                        request.restaurantChannelId()
+                                )
+                        );
 
         if (!restaurantChannel.isActive()) {
             throw new IllegalArgumentException(
-                "Restaurant channel is inactive"
+                    "Restaurant channel is inactive"
             );
         }
 
         if (channelMetricRepository
                 .existsByPeriod_IdAndRestaurantChannel_Id(
-                    periodId,
-                    restaurantChannel.getId()
+                        periodId,
+                        restaurantChannel.getId()
                 )) {
 
             throw new ChannelMetricAlreadyExistsException();
         }
 
-        validateFinancialValues(
-            request.grossRevenue(),
-            request.netRevenue()
-        );
+        BigDecimal resolvedNetRevenue = request.netRevenue();
 
-        ChannelMetric metric =
-                new ChannelMetric(
-                    period,
-                    restaurantChannel,
+        IfoodFinancialDetailsRequest resolvedDetails =
+                request.ifoodDetails();
+
+        if (isIfood(restaurantChannel)) {
+
+            IfoodFinancialCalculator.Result calculated =
+                    IfoodFinancialCalculator.calculate(
+                            request.grossRevenue(),
+                            request.fees(),
+                            request.ifoodDetails()
+                    );
+
+            resolvedNetRevenue = calculated.netRevenue();
+
+            resolvedDetails =
+                    IfoodFinancialCalculator.withCalculatedTransfers(
+                            request.ifoodDetails(),
+                            calculated
+                    );
+
+        } else {
+
+            validateFinancialValues(
                     request.grossRevenue(),
-                    request.orders(),
-                    request.netRevenue(),
-                    request.fees(),
-                    request.promotions()
-                );
+                    resolvedNetRevenue
+            );
+        }
 
-        return toResponse(
-            channelMetricRepository.save(metric)
+        ChannelMetric metric = new ChannelMetric(
+                period,
+                restaurantChannel,
+                request.grossRevenue(),
+                request.orders(),
+                resolvedNetRevenue,
+                request.fees(),
+                request.promotions()
         );
+
+        ChannelMetric saved =
+                channelMetricRepository.save(metric);
+
+        saveIfoodDetails(saved, resolvedDetails);
+
+        return toResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -120,17 +142,16 @@ public class ChannelMetricService {
             Long restaurantId,
             Long periodId) {
 
-        tenantAccessService
-                .validateRestaurantAccess(restaurantId);
+        tenantAccessService.validateRestaurantAccess(restaurantId);
 
         findPeriod(
-            restaurantId,
-            periodId
+                restaurantId,
+                periodId
         );
 
         return channelMetricRepository
                 .findAllByPeriod_IdOrderByRestaurantChannel_Channel_NameAsc(
-                    periodId
+                        periodId
                 )
                 .stream()
                 .map(this::toResponse)
@@ -144,20 +165,19 @@ public class ChannelMetricService {
             Long periodId,
             Long metricId) {
 
-        tenantAccessService
-                .validateRestaurantAccess(restaurantId);
+        tenantAccessService.validateRestaurantAccess(restaurantId);
 
         findPeriod(
-            restaurantId,
-            periodId
+                restaurantId,
+                periodId
         );
 
-        return toResponse(
-            findMetric(
+        ChannelMetric metric = findMetric(
                 periodId,
                 metricId
-            )
         );
+
+        return toResponse(metric);
     }
 
     @Transactional
@@ -168,48 +188,74 @@ public class ChannelMetricService {
             Long metricId,
             UpdateChannelMetricRequest request) {
 
-        tenantAccessService
-                .validateRestaurantAccess(restaurantId);
+        tenantAccessService.validateRestaurantAccess(restaurantId);
 
         findPeriod(
-            restaurantId,
-            periodId
+                restaurantId,
+                periodId
         );
 
-        ChannelMetric metric =
-                findMetric(
-                    periodId,
-                    metricId
-                );
-
-        validateFinancialValues(
-            request.grossRevenue(),
-            request.netRevenue()
+        ChannelMetric metric = findMetric(
+                periodId,
+                metricId
         );
+
+        BigDecimal resolvedNetRevenue = request.netRevenue();
+
+        IfoodFinancialDetailsRequest resolvedDetails =
+                request.ifoodDetails();
+
+        if (isIfood(metric.getRestaurantChannel())) {
+
+            IfoodFinancialCalculator.Result calculated =
+                    IfoodFinancialCalculator.calculate(
+                            request.grossRevenue(),
+                            request.fees(),
+                            request.ifoodDetails()
+                    );
+
+            resolvedNetRevenue = calculated.netRevenue();
+
+            resolvedDetails =
+                    IfoodFinancialCalculator.withCalculatedTransfers(
+                            request.ifoodDetails(),
+                            calculated
+                    );
+
+        } else {
+
+            validateFinancialValues(
+                    request.grossRevenue(),
+                    resolvedNetRevenue
+            );
+        }
 
         metric.setGrossRevenue(
-            request.grossRevenue()
+                request.grossRevenue()
         );
 
         metric.setOrders(
-            request.orders()
+                request.orders()
         );
 
         metric.setNetRevenue(
-            request.netRevenue()
+                resolvedNetRevenue
         );
 
         metric.setFees(
-            request.fees()
+                request.fees()
         );
 
         metric.setPromotions(
-            request.promotions()
+                request.promotions()
         );
 
-        return toResponse(
-            channelMetricRepository.save(metric)
-        );
+        ChannelMetric saved =
+                channelMetricRepository.save(metric);
+
+        saveIfoodDetails(saved, resolvedDetails);
+
+        return toResponse(saved);
     }
 
     @Transactional
@@ -219,19 +265,17 @@ public class ChannelMetricService {
             Long periodId,
             Long metricId) {
 
-        tenantAccessService
-                .validateRestaurantAccess(restaurantId);
+        tenantAccessService.validateRestaurantAccess(restaurantId);
 
         findPeriod(
-            restaurantId,
-            periodId
+                restaurantId,
+                periodId
         );
 
-        ChannelMetric metric =
-                findMetric(
-                    periodId,
-                    metricId
-                );
+        ChannelMetric metric = findMetric(
+                periodId,
+                metricId
+        );
 
         channelMetricRepository.delete(metric);
     }
@@ -242,13 +286,12 @@ public class ChannelMetricService {
 
         return reportingPeriodRepository
                 .findByIdAndRestaurant_Id(
-                    periodId,
-                    restaurantId
+                        periodId,
+                        restaurantId
                 )
                 .orElseThrow(
-                    () ->
-                        new ReportingPeriodNotFoundException(
-                            periodId
+                        () -> new ReportingPeriodNotFoundException(
+                                periodId
                         )
                 );
     }
@@ -259,15 +302,50 @@ public class ChannelMetricService {
 
         return channelMetricRepository
                 .findByIdAndPeriod_Id(
-                    metricId,
-                    periodId
+                        metricId,
+                        periodId
                 )
                 .orElseThrow(
-                    () ->
-                        new ChannelMetricNotFoundException(
-                            metricId
+                        () -> new ChannelMetricNotFoundException(
+                                metricId
                         )
                 );
+    }
+
+    private boolean isIfood(
+            RestaurantChannel restaurantChannel) {
+
+        return "ifood".equals(
+                restaurantChannel
+                        .getChannel()
+                        .getSlug()
+        );
+    }
+
+    private void saveIfoodDetails(
+            ChannelMetric metric,
+            IfoodFinancialDetailsRequest detailsRequest) {
+
+        if (detailsRequest == null) {
+            return;
+        }
+
+        if (!isIfood(metric.getRestaurantChannel())) {
+            throw new IllegalArgumentException(
+                    "iFood financial details are only available for the iFood channel"
+            );
+        }
+
+        IfoodFinancialDetail detail =
+                ifoodFinancialDetailRepository
+                        .findByChannelMetric_Id(metric.getId())
+                        .orElseGet(
+                                () -> new IfoodFinancialDetail(metric)
+                        );
+
+        detail.update(detailsRequest);
+
+        ifoodFinancialDetailRepository.save(detail);
     }
 
     private void validateFinancialValues(
@@ -275,9 +353,8 @@ public class ChannelMetricService {
             BigDecimal netRevenue) {
 
         if (netRevenue.compareTo(grossRevenue) > 0) {
-
             throw new IllegalArgumentException(
-                "Net revenue cannot exceed gross revenue"
+                    "Net revenue cannot exceed gross revenue"
             );
         }
     }
@@ -285,61 +362,65 @@ public class ChannelMetricService {
     private ChannelMetricResponse toResponse(
             ChannelMetric metric) {
 
-        BigDecimal gross =
-                metric.getGrossRevenue();
+        BigDecimal gross = metric.getGrossRevenue();
+        BigDecimal net = metric.getNetRevenue();
 
-        BigDecimal net =
-                metric.getNetRevenue();
-
-        BigDecimal discount =
-                gross.subtract(net);
+        BigDecimal discount = gross.subtract(net);
 
         BigDecimal averageTicket =
                 calculateAverageTicket(
-                    gross,
-                    metric.getOrders()
+                        gross,
+                        metric.getOrders()
                 );
 
         BigDecimal receivedPercentage =
                 percentage(
-                    net,
-                    gross
+                        net,
+                        gross
                 );
 
         BigDecimal discountPercentage =
                 percentage(
-                    discount,
-                    gross
+                        discount,
+                        gross
                 );
 
+        IfoodFinancialDetailsResponse ifoodDetails =
+                ifoodFinancialDetailRepository
+                        .findByChannelMetric_Id(metric.getId())
+                        .map(IfoodFinancialDetailsResponse::from)
+                        .orElse(null);
+
         return new ChannelMetricResponse(
-            metric.getId(),
-            metric.getPeriod().getId(),
+                metric.getId(),
+                metric.getPeriod().getId(),
 
-            metric.getRestaurantChannel().getId(),
-            metric.getRestaurantChannel()
-                  .getChannel()
-                  .getId(),
+                metric.getRestaurantChannel().getId(),
+                metric.getRestaurantChannel()
+                        .getChannel()
+                        .getId(),
 
-            metric.getRestaurantChannel()
-                  .getChannel()
-                  .getName(),
+                metric.getRestaurantChannel()
+                        .getChannel()
+                        .getName(),
 
-            gross,
-            metric.getOrders(),
-            net,
-            metric.getFees(),
-            metric.getPromotions(),
+                gross,
+                metric.getOrders(),
+                net,
+                metric.getFees(),
+                metric.getPromotions(),
 
-            metric.getSource(),
+                ifoodDetails,
 
-            averageTicket,
-            receivedPercentage,
-            discount,
-            discountPercentage,
+                metric.getSource(),
 
-            metric.getCreatedAt(),
-            metric.getUpdatedAt()
+                averageTicket,
+                receivedPercentage,
+                discount,
+                discountPercentage,
+
+                metric.getCreatedAt(),
+                metric.getUpdatedAt()
         );
     }
 
@@ -348,14 +429,13 @@ public class ChannelMetricService {
             Integer orders) {
 
         if (orders == 0) {
-            return BigDecimal.ZERO
-                    .setScale(2);
+            return BigDecimal.ZERO.setScale(2);
         }
 
         return grossRevenue.divide(
-            BigDecimal.valueOf(orders),
-            2,
-            RoundingMode.HALF_UP
+                BigDecimal.valueOf(orders),
+                2,
+                RoundingMode.HALF_UP
         );
     }
 
@@ -364,16 +444,15 @@ public class ChannelMetricService {
             BigDecimal total) {
 
         if (total.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO
-                    .setScale(2);
+            return BigDecimal.ZERO.setScale(2);
         }
 
         return value
                 .multiply(ONE_HUNDRED)
                 .divide(
-                    total,
-                    2,
-                    RoundingMode.HALF_UP
+                        total,
+                        2,
+                        RoundingMode.HALF_UP
                 );
     }
 }

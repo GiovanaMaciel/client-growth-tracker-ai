@@ -12,6 +12,8 @@ import br.com.digitalquinze.clientgrowthtracker.analytics.dto.ChannelPerformance
 import br.com.digitalquinze.clientgrowthtracker.analytics.dto.PeriodSummaryResponse;
 import br.com.digitalquinze.clientgrowthtracker.channelmetric.ChannelMetric;
 import br.com.digitalquinze.clientgrowthtracker.channelmetric.ChannelMetricRepository;
+import br.com.digitalquinze.clientgrowthtracker.channelmetric.IfoodFinancialDetailRepository;
+import br.com.digitalquinze.clientgrowthtracker.channelmetric.dto.IfoodFinancialDetailsResponse;
 import br.com.digitalquinze.clientgrowthtracker.reportingperiod.ReportingPeriod;
 import br.com.digitalquinze.clientgrowthtracker.reportingperiod.ReportingPeriodNotFoundException;
 import br.com.digitalquinze.clientgrowthtracker.reportingperiod.ReportingPeriodRepository;
@@ -25,11 +27,13 @@ public class PeriodSummaryService {
 
     private final ReportingPeriodRepository reportingPeriodRepository;
     private final ChannelMetricRepository channelMetricRepository;
+    private final IfoodFinancialDetailRepository ifoodFinancialDetailRepository;
     private final TenantAccessService tenantAccessService;
 
     public PeriodSummaryService(
             ReportingPeriodRepository reportingPeriodRepository,
             ChannelMetricRepository channelMetricRepository,
+            IfoodFinancialDetailRepository ifoodFinancialDetailRepository,
             TenantAccessService tenantAccessService) {
 
         this.reportingPeriodRepository =
@@ -37,6 +41,8 @@ public class PeriodSummaryService {
 
         this.channelMetricRepository =
                 channelMetricRepository;
+
+        this.ifoodFinancialDetailRepository = ifoodFinancialDetailRepository;
 
         this.tenantAccessService =
                 tenantAccessService;
@@ -205,6 +211,8 @@ public class PeriodSummaryService {
                 gross
             ),
 
+            metric.getFees(),
+
             money(discount),
 
             percentage(
@@ -224,7 +232,12 @@ public class PeriodSummaryService {
                 BigDecimal.valueOf(
                     totalOrders
                 )
-            )
+            ),
+
+            ifoodFinancialDetailRepository
+                .findByChannelMetric_Id(metric.getId())
+                .map(IfoodFinancialDetailsResponse::from)
+                .orElse(null)
         );
     }
 

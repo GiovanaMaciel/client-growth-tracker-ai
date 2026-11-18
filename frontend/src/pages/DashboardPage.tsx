@@ -89,6 +89,13 @@ export default function DashboardPage() {
     faturamento: channel.grossRevenue,
   }));
 
+  const ifoodFinancial = summary.channels.find(
+    (channel) =>
+      channel.ifoodDetails &&
+      Object.values(channel.ifoodDetails).some((value) => value !== null),
+  );
+  const ifoodDetails = ifoodFinancial?.ifoodDetails;
+
   const maximumRevenue = Math.max(
     0,
     ...chartData.map((channel) => channel.faturamento),
@@ -146,7 +153,7 @@ export default function DashboardPage() {
           />
 
           <KpiCard
-            label="Líquido recebido"
+            label="Valor líquido informado"
             value={formatCurrency(summary.totalNetRevenue)}
           />
 
@@ -252,7 +259,7 @@ export default function DashboardPage() {
                 <tr>
                   <th className="py-3">Canal</th>
                   <th>Faturamento</th>
-                  <th>Líquido recebido</th>
+                  <th>Valor líquido</th>
                   <th>Pedidos</th>
                   <th>Ticket médio</th>
                   <th>Participação</th>
@@ -284,6 +291,48 @@ export default function DashboardPage() {
             </table>
           </div>
         </section>
+
+        {ifoodFinancial && ifoodDetails && (
+          <section className="cgt-report-card mt-8 rounded-xl border border-slate-200 bg-white p-6">
+            <h2 className="mb-2 text-xl font-semibold text-slate-900">
+              Detalhamento financeiro — iFood
+            </h2>
+            <p className="mb-5 text-sm text-slate-500">
+              Valores informados no demonstrativo financeiro do iFood.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {(
+                [
+                  ["Valor das vendas", ifoodFinancial.grossRevenue],
+                  ["Taxas e comissões", ifoodFinancial.fees],
+                ] as const
+              ).map(([label, amount]) => (
+                <div key={label} className="rounded-lg bg-slate-50 p-4">
+                  <p className="text-xs text-slate-500">{label}</p>
+                  <p className="mt-1 font-semibold text-slate-900">
+                    {amount === null ? "—" : formatCurrency(amount)}
+                  </p>
+                </div>
+              ))}
+              {(
+                [
+                  ["Serviços e promoções", ifoodDetails.servicesAndPromotions],
+                  ["Ajustes", ifoodDetails.adjustments],
+                  ["Faturamento após descontos", ifoodFinancial.netRevenue],
+                  ["Recebido direto pela loja", ifoodDetails.directReceipts],
+                  ["Valor dos repasses", ifoodDetails.marketplaceTransfers],
+                ] as const
+              ).map(([label, amount]) => (
+                <div key={label} className="rounded-lg bg-slate-50 p-4">
+                  <p className="text-xs text-slate-500">{label}</p>
+                  <p className="mt-1 font-semibold text-slate-900">
+                    {amount === null ? "—" : formatCurrency(amount)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="cgt-funnels mt-8">
           <h2 className="text-xl font-semibold text-slate-900 mb-5">
@@ -413,8 +462,9 @@ export default function DashboardPage() {
         </section>
 
         <footer className="cgt-report-footer mb-6 text-xs text-slate-500">
-          Líquido recebido representa o repasse informado pelos canais e não
-          necessariamente o lucro do restaurante.
+          O valor líquido informado não representa necessariamente o lucro. No
+          iFood, o faturamento após descontos inclui recebimentos diretos e
+          repasses da plataforma.
         </footer>
       </main>
     </div>

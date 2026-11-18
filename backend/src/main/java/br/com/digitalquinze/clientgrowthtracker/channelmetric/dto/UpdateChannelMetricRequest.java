@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.Valid;
 
 public record UpdateChannelMetricRequest(
 
@@ -24,7 +25,10 @@ public record UpdateChannelMetricRequest(
     BigDecimal fees,
 
     @DecimalMin("0.00")
-    BigDecimal promotions
+    BigDecimal promotions,
+
+    @Valid
+    IfoodFinancialDetailsRequest ifoodDetails
 
 ) {
 }

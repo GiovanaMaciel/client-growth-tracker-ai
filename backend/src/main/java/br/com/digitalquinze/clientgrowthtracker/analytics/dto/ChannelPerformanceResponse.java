@@ -1,6 +1,7 @@
 package br.com.digitalquinze.clientgrowthtracker.analytics.dto;
 
 import java.math.BigDecimal;
+import br.com.digitalquinze.clientgrowthtracker.channelmetric.dto.IfoodFinancialDetailsResponse;
 
 public record ChannelPerformanceResponse(
 
@@ -14,12 +15,14 @@ public record ChannelPerformanceResponse(
 
     BigDecimal netRevenue,
     BigDecimal receivedPercentage,
+    BigDecimal fees,
 
     BigDecimal discountValue,
     BigDecimal discountPercentage,
 
     BigDecimal salesSharePercentage,
-    BigDecimal ordersSharePercentage
+    BigDecimal ordersSharePercentage,
+    IfoodFinancialDetailsResponse ifoodDetails
 
 ) {
 }

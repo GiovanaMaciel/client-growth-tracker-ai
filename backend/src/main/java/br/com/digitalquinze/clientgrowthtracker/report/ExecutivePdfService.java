@@ -1,4 +1,3 @@
-
 package br.com.digitalquinze.clientgrowthtracker.report;
 
 import java.awt.Color;
@@ -86,7 +85,7 @@ public class ExecutivePdfService {
                 );
 
                 layout.text(
-                        "Liquido recebido: " +
+                        "Valor liquido informado: " +
                         money(summary.totalNetRevenue())
                 );
 
@@ -134,9 +133,24 @@ public class ExecutivePdfService {
                             );
 
                             layout.text(
-                                    "Liquido recebido: " +
+                                    "Valor liquido informado: " +
                                     money(channel.netRevenue())
                             );
+
+                            if (channel.ifoodDetails() != null) {
+                                layout.subsection("DETALHAMENTO FINANCEIRO IFOOD");
+                                layout.text("Valor das vendas: " + money(channel.grossRevenue()));
+                                layout.text("Taxas e comissoes: " + money(channel.fees()));
+                                layout.text("Servicos e promocoes: " +
+                                        money(channel.ifoodDetails().servicesAndPromotions()));
+                                layout.text("Ajustes: " +
+                                        money(channel.ifoodDetails().adjustments()));
+                                layout.text("Faturamento apos descontos: " + money(channel.netRevenue()));
+                                layout.text("Recebido direto pela loja: " +
+                                        money(channel.ifoodDetails().directReceipts()));
+                                layout.text("Valor dos repasses: " +
+                                        money(channel.ifoodDetails().marketplaceTransfers()));
+                            }
 
                         } catch (IOException exception) {
                             throw new PdfGenerationException(exception);
@@ -226,10 +240,9 @@ public class ExecutivePdfService {
                 layout.section("OBSERVACOES");
 
                 layout.text(
-                        "O valor liquido recebido nao representa " +
-                        "necessariamente o lucro do restaurante. " +
-                        "Para calcular lucro, tambem devem ser " +
-                        "considerados os custos operacionais."
+                        "O valor liquido informado nao representa necessariamente " +
+                        "o lucro do restaurante. No iFood, o faturamento apos " +
+                        "descontos inclui recebimentos diretos e repasses."
                 );
 
                 layout.text(
